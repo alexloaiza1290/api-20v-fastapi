@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Path, Query, Form, Header
 from pymongo import MongoClient
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,6 +49,26 @@ def create_one_post_json_data(post: PostBase, db=Depends(get_db)):
         "created": created_post["created"].isoformat()
     }
 
+@app.post("/post/create-form-data")
+def create_one_post_form_data(
+        title: str = Form(..., min_length=1, max_length=20),
+        content: str = Form(..., min_length=1, max_length=255),
+        db=Depends(get_db)
+    ):
+    new_post = {
+        "title": title,
+        "content": content,
+        "created": datetime.now()
+    }
+    result = db["post"].insert_one(new_post)
+    created_post = db["post"].find_one({"_id": result.inserted_id})
+    return {
+        "id": str(created_post["_id"]),
+        "title": created_post["title"],
+        "content": created_post["content"],
+        "created": created_post["created"].isoformat()
+    }
+
 @app.get("/post")
 def get_all_post(db=Depends(get_db)):
     posts = []
@@ -62,8 +82,34 @@ def get_all_post(db=Depends(get_db)):
     })
     return posts
 
+@app.get("/post/buscar")
+def buscar_post(
+    titulo: str | None = Query(None, min_length=1, max_length=255, title="titulo del post"),
+    db=Depends(get_db)
+    ):
+    filtro = {"title": {"$regex": titulo, "$options": "i"} }
+
+    posts = []
+    post_list = db["post"].find(filtro)
+    for post in post_list:
+        posts.append({
+        "id": str(post["_id"]),
+        "title": post["title"],
+        "content": post["content"],
+        "created": post["created"].isoformat()
+    })
+    return posts
+
 @app.get("/post/{post_id}")
-def get_one_post(post_id: str, db=Depends(get_db)):
+def get_one_post(
+        post_id: str = Path(
+                title="Id del post", 
+                min_length=24, 
+                max_length=24,
+                regex="^[0-9a-fA-F]{24}$"
+            ), 
+        db=Depends(get_db)
+    ):
     post = db["post"].find_one({"_id": ObjectId(post_id)})
     return {
         "id": str(post["_id"]),
@@ -72,7 +118,7 @@ def get_one_post(post_id: str, db=Depends(get_db)):
         "created": post["created"].isoformat()
     }
 
-@app.put("/post/edit/{post_id}")
+@app.patch("/post/edit/{post_id}")
 def edit_one_post(post_id: str, post: PostBase, db=Depends(get_db)):
     existing_post = db["post"].find_one({"_id": ObjectId(post_id)})
     if not existing_post:
@@ -98,3 +144,31 @@ def delete_one_post(post_id: str, db=Depends(get_db)):
         raise HTTPException(status_code=404, detail="el objeto no existe")
     db["post"].delete_one({"_id": ObjectId(post_id)})
     return {"message": "Post deleted successfully"}
+
+
+@app.get("/posts/secure/")
+def obtener_posts_secure(
+        authorization: str = Header(..., alias="Authorization", description="Token en formato 'Bearer <token>'"),
+        db=Depends(get_db)
+    ):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=400,
+            detail="Formato de token inválido. Use 'Bearer <token>'"
+        )
+    
+    token = authorization[7:]
+
+    if token != "secreto123":
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+    
+    posts = []
+    post_list = db["post"].find()
+    for post in post_list:
+        posts.append({
+        "id": str(post["_id"]),
+        "title": post["title"],
+        "content": post["content"],
+        "created": post["created"].isoformat()
+    })
+    return posts
