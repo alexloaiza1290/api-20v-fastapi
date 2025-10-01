@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Path, Query, Form, Header
+from fastapi import FastAPI, Depends, HTTPException, Path, Query, Form, Header, Response, Cookie
 from pymongo import MongoClient
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
@@ -172,3 +172,17 @@ def obtener_posts_secure(
         "created": post["created"].isoformat()
     })
     return posts
+
+@app.get("/set-cookie")
+def set_cookie(response: Response):
+    response.set_cookie(key="user_id", value="123456")
+    return {"message": "Cookie creada!"}
+
+@app.get("/get-cookie")
+def get_cookie(user_id: str | None = Cookie(None)):
+    return { "value": user_id }
+
+@app.get("/del-cookie/")
+def clear_cookie(response: Response):
+    response.delete_cookie("user_id")
+    return {"message": "Cookie de posts eliminada"}
