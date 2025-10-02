@@ -17,7 +17,9 @@ app.add_middleware(
 )
 
 def get_db():
-    client = MongoClient("mongodb+srv://jorgeav527:jorgimetro527@cluster0.mn8kdim.mongodb.net/")
+    client = MongoClient("mongodb+srv://jorgeav527:jorgimetro527@cluster0.mn8kdim.mongodb.net/",
+    tls=True,
+    tlsAllowInvalidCertificates=True)
     try:
         db = client["api-20v"]
         yield db
