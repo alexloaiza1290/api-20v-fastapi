@@ -33,7 +33,7 @@ class PostBase(BaseModel):
 
 @app.get("/")
 def read_root():
-    return {"Hello": "Alumnos"}
+    return {"Hello": "El ultmo deploy"}
 
 @app.post("/post/create-json-data")
 def create_one_post_json_data(post: PostBase, db=Depends(get_db)):
